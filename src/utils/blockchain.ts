@@ -12,6 +12,11 @@ const initializeVotingResults = () => {
     };
     localStorage.setItem('votingResults', JSON.stringify(initialResults));
   }
+  
+  // Initialize voted accounts if it doesn't exist
+  if (!localStorage.getItem('votedAccounts')) {
+    localStorage.setItem('votedAccounts', JSON.stringify([]));
+  }
 };
 
 // Initialize on load
@@ -46,6 +51,10 @@ export const castVote = async (candidateId: number, account: string): Promise<{ 
   const results = JSON.parse(localStorage.getItem('votingResults') || '{}');
   results[candidateId] = (results[candidateId] || 0) + 1;
   localStorage.setItem('votingResults', JSON.stringify(results));
+  
+  // Add account to voted accounts
+  votedAccounts.push(account);
+  localStorage.setItem('votedAccounts', JSON.stringify(votedAccounts));
   
   return { 
     success: true, 

@@ -11,7 +11,7 @@ import {
   Cell,
   PieChart,
   Pie
-} from '@/components/ui/chart'; // Import Cell from our chart component
+} from '@/components/ui/chart';
 import { getVotingResults } from '@/utils/blockchain';
 import { Loader2 } from 'lucide-react';
 
@@ -47,7 +47,7 @@ const ResultsSection: React.FC = () => {
         setLoading(true);
         // First check if we have results in localStorage
         const storedResults = localStorage.getItem('votingResults');
-        let resultsData;
+        let resultsData: Record<string, number> = {};
         
         if (storedResults) {
           resultsData = JSON.parse(storedResults);
@@ -57,10 +57,10 @@ const ResultsSection: React.FC = () => {
           localStorage.setItem('votingResults', JSON.stringify(resultsData));
         }
         
-        const formattedResults = Object.entries(resultsData).map(([id, votes]) => ({
+        const formattedResults: ResultsData[] = Object.entries(resultsData).map(([id, votes]) => ({
           id: parseInt(id),
           name: candidateNames[parseInt(id)] || `Candidate ${id}`,
-          votes,
+          votes: Number(votes), // Explicitly convert votes to number
           color: candidateColors[parseInt(id)] || "#64748b"
         }));
         

@@ -30,6 +30,6 @@ export {
   ResponsiveContainer,
   PieChart,
   Pie,
-  Cell,
+  Cell,  // Make sure Cell is exported
   ReferenceLine,
 };

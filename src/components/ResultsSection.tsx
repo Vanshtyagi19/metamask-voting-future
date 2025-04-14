@@ -1,6 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  Cell
+} from '@/components/ui/chart'; // Import Cell from our chart component
 import { getVotingResults } from '@/utils/blockchain';
 import { Loader2 } from 'lucide-react';
 

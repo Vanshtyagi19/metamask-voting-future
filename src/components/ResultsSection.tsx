@@ -13,7 +13,8 @@ import {
   Pie
 } from '@/components/ui/chart';
 import { getVotingResults } from '@/utils/blockchain';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const candidateNames: Record<number, string> = {
   1: "Jane Smith",
@@ -40,48 +41,55 @@ const ResultsSection: React.FC = () => {
   const [results, setResults] = useState<ResultsData[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [totalVotes, setTotalVotes] = useState<number>(0);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  
+  const fetchResults = async () => {
+    try {
+      setLoading(true);
+      // First check if we have results in localStorage
+      const storedResults = localStorage.getItem('votingResults');
+      let resultsData: Record<string, number> = {};
+      
+      if (storedResults) {
+        resultsData = JSON.parse(storedResults);
+      } else {
+        resultsData = await getVotingResults();
+        // Store the results for future use
+        localStorage.setItem('votingResults', JSON.stringify(resultsData));
+      }
+      
+      const formattedResults: ResultsData[] = Object.entries(resultsData).map(([id, votes]) => ({
+        id: parseInt(id),
+        name: candidateNames[parseInt(id)] || `Candidate ${id}`,
+        votes: Number(votes), // Explicitly convert votes to number
+        color: candidateColors[parseInt(id)] || "#64748b"
+      }));
+      
+      // Sort by votes (highest first)
+      formattedResults.sort((a, b) => b.votes - a.votes);
+      
+      setResults(formattedResults);
+      setTotalVotes(formattedResults.reduce((sum, item) => sum + item.votes, 0));
+    } catch (error) {
+      console.error("Error fetching results:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
   
   useEffect(() => {
-    const fetchResults = async () => {
-      try {
-        setLoading(true);
-        // First check if we have results in localStorage
-        const storedResults = localStorage.getItem('votingResults');
-        let resultsData: Record<string, number> = {};
-        
-        if (storedResults) {
-          resultsData = JSON.parse(storedResults);
-        } else {
-          resultsData = await getVotingResults();
-          // Store the results for future use
-          localStorage.setItem('votingResults', JSON.stringify(resultsData));
-        }
-        
-        const formattedResults: ResultsData[] = Object.entries(resultsData).map(([id, votes]) => ({
-          id: parseInt(id),
-          name: candidateNames[parseInt(id)] || `Candidate ${id}`,
-          votes: Number(votes), // Explicitly convert votes to number
-          color: candidateColors[parseInt(id)] || "#64748b"
-        }));
-        
-        // Sort by votes (highest first)
-        formattedResults.sort((a, b) => b.votes - a.votes);
-        
-        setResults(formattedResults);
-        setTotalVotes(formattedResults.reduce((sum, item) => sum + item.votes, 0));
-      } catch (error) {
-        console.error("Error fetching results:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     fetchResults();
     
     // Polling for updates every 30 seconds
     const interval = setInterval(fetchResults, 30000);
     return () => clearInterval(interval);
   }, []);
+  
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchResults();
+  };
   
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -111,7 +119,7 @@ const ResultsSection: React.FC = () => {
     return null;
   };
   
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <div className="flex justify-center items-center py-16">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600 mr-2" />
@@ -122,11 +130,25 @@ const ResultsSection: React.FC = () => {
   
   return (
     <div className="container mx-auto py-12 px-4">
-      <div className="text-center mb-12">
+      <div className="text-center mb-8">
         <h2 className="text-3xl font-bold mb-2">Election Results</h2>
-        <p className="text-gray-600">
+        <p className="text-gray-600 mb-2">
           Live results from the blockchain - Total votes: {totalVotes}
         </p>
+        <Button 
+          onClick={handleRefresh} 
+          variant="outline" 
+          size="sm"
+          className="flex items-center mt-2"
+          disabled={refreshing}
+        >
+          {refreshing ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          ) : (
+            <RefreshCw className="h-4 w-4 mr-2" />
+          )}
+          Refresh Results
+        </Button>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

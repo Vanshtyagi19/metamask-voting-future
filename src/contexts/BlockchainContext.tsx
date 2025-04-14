@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { toast } from "sonner";
+import { hasAccountVoted, resetAccountVote } from '@/utils/blockchain';
 
 // Define types for our context
 export interface BlockchainContextType {
@@ -103,8 +104,8 @@ export const BlockchainProvider: React.FC<BlockchainProviderProps> = ({ children
         setChainId(await window.ethereum.request({ method: 'eth_chainId' }));
         
         // Check if this account has already voted
-        const votedAccounts = JSON.parse(localStorage.getItem('votedAccounts') || '[]');
-        setHasVoted(votedAccounts.includes(newAccount));
+        const voted = hasAccountVoted(newAccount);
+        setHasVoted(voted);
         
         toast.success("Connected to MetaMask!");
       }
@@ -118,6 +119,12 @@ export const BlockchainProvider: React.FC<BlockchainProviderProps> = ({ children
 
   // Disconnect from MetaMask
   const disconnectWallet = (): void => {
+    if (account) {
+      // For demo purposes, reset vote status when disconnecting
+      // In a real blockchain app, this would be persistent on the blockchain
+      resetAccountVote(account);
+    }
+    
     setAccount(null);
     setIsConnected(false);
     setChainId(null);
@@ -138,8 +145,8 @@ export const BlockchainProvider: React.FC<BlockchainProviderProps> = ({ children
             setChainId(await window.ethereum.request({ method: 'eth_chainId' }));
             
             // Check if this account has already voted
-            const votedAccounts = JSON.parse(localStorage.getItem('votedAccounts') || '[]');
-            setHasVoted(votedAccounts.includes(reconnectedAccount));
+            const voted = hasAccountVoted(reconnectedAccount);
+            setHasVoted(voted);
             
             console.log("Reconnected to MetaMask");
           }
@@ -166,8 +173,8 @@ export const BlockchainProvider: React.FC<BlockchainProviderProps> = ({ children
           setIsConnected(true);
           
           // Check if this new account has already voted
-          const votedAccounts = JSON.parse(localStorage.getItem('votedAccounts') || '[]');
-          setHasVoted(votedAccounts.includes(newAccount));
+          const voted = hasAccountVoted(newAccount);
+          setHasVoted(voted);
           
           toast.info("Account changed");
         }

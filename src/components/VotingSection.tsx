@@ -3,9 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { useBlockchain } from '@/contexts/BlockchainContext';
 import CandidateCard from './CandidateCard';
-import { castVote, checkTransactionStatus, getVotingResults } from '@/utils/blockchain';
+import { castVote, checkTransactionStatus, getVotingResults, hasAccountVoted } from '@/utils/blockchain';
 import { toast } from 'sonner';
-import { Loader2, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, Lock, RefreshCw, Vote, ArrowRight } from 'lucide-react';
 
 // Candidate data (would come from a blockchain contract in a real implementation)
 const candidates = [
@@ -42,7 +42,7 @@ const candidates = [
 type TransactionStatus = 'idle' | 'pending' | 'confirming' | 'confirmed' | 'failed';
 
 const VotingSection: React.FC = () => {
-  const { account, isConnected, hasVoted, setHasVoted } = useBlockchain();
+  const { account, isConnected, hasVoted, setHasVoted, disconnectWallet } = useBlockchain();
   const [selectedCandidate, setSelectedCandidate] = useState<number | null>(null);
   const [transactionStatus, setTransactionStatus] = useState<TransactionStatus>('idle');
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
@@ -53,14 +53,8 @@ const VotingSection: React.FC = () => {
     const checkIfVoted = async () => {
       if (account) {
         try {
-          // Normally would check the blockchain here
-          // For demo, we're just checking localStorage
-          const votedAccounts = JSON.parse(localStorage.getItem('votedAccounts') || '[]');
-          if (votedAccounts.includes(account)) {
-            setHasVoted(true);
-          } else {
-            setHasVoted(false);
-          }
+          const voted = hasAccountVoted(account);
+          setHasVoted(voted);
         } catch (error) {
           console.error("Error checking vote status:", error);
         }
@@ -89,7 +83,7 @@ const VotingSection: React.FC = () => {
     
     try {
       setTransactionStatus('pending');
-      toast.info("Sending your vote to the blockchain...");
+      toast.info("Please confirm the transaction in MetaMask...");
       
       // Simulate interaction with blockchain
       const { success, transactionHash } = await castVote(selectedCandidate, account);
@@ -105,13 +99,6 @@ const VotingSection: React.FC = () => {
         if (confirmed) {
           setTransactionStatus('confirmed');
           
-          // Update local storage to mark this account as having voted
-          const votedAccounts = JSON.parse(localStorage.getItem('votedAccounts') || '[]');
-          if (!votedAccounts.includes(account)) {
-            votedAccounts.push(account);
-            localStorage.setItem('votedAccounts', JSON.stringify(votedAccounts));
-          }
-          
           // Update vote count for the selected candidate
           const currentResults = await getVotingResults();
           
@@ -123,11 +110,26 @@ const VotingSection: React.FC = () => {
           toast.success("Your vote has been confirmed on the blockchain!");
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error casting vote:", error);
       setTransactionStatus('failed');
-      toast.error("Failed to cast your vote. Please try again.");
+      
+      if (error.message === "Transaction rejected by user.") {
+        toast.error("You rejected the transaction in MetaMask.");
+      } else if (error.message === "This wallet address has already voted.") {
+        toast.error("This wallet has already voted. Please use a different wallet.");
+        setHasVoted(true);
+      } else {
+        toast.error("Failed to cast your vote. Please try again.");
+      }
     }
+  };
+  
+  const handleDisconnectAndReset = () => {
+    disconnectWallet();
+    setTransactionStatus('idle');
+    setTransactionHash(null);
+    setSelectedCandidate(null);
   };
   
   const getStatusMessage = () => {
@@ -136,14 +138,14 @@ const VotingSection: React.FC = () => {
         return (
           <div className="flex items-center text-blue-600">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            <span>Sending transaction...</span>
+            <span>Waiting for MetaMask confirmation...</span>
           </div>
         );
       case 'confirming':
         return (
           <div className="flex items-center text-blue-600">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            <span>Waiting for confirmation...</span>
+            <span>Waiting for blockchain confirmation...</span>
           </div>
         );
       case 'confirmed':
@@ -168,18 +170,24 @@ const VotingSection: React.FC = () => {
   if (!isConnected) {
     return (
       <div className="container mx-auto py-16 px-4 text-center">
-        <h2 className="text-3xl font-bold mb-4">Connect to Vote</h2>
-        <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
-          Please connect your MetaMask wallet to participate in the election. 
-          Your wallet address will be used to verify your identity and ensure one vote per person.
-        </p>
-        <div className="flex justify-center">
-          <Button 
-            onClick={() => window.scrollTo(0, 0)} 
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            Connect Wallet Above
-          </Button>
+        <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-8">
+          <div className="flex justify-center mb-6">
+            <Vote className="h-16 w-16 text-blue-600" />
+          </div>
+          <h2 className="text-3xl font-bold mb-4">Connect to Vote</h2>
+          <p className="text-gray-600 mb-6">
+            Please connect your MetaMask wallet to participate in the election. 
+            Your wallet address will be used to verify your identity and ensure one vote per person.
+          </p>
+          <div className="flex justify-center">
+            <Button 
+              onClick={() => window.scrollTo(0, 0)} 
+              className="bg-blue-600 hover:bg-blue-700 py-2 px-4 rounded flex items-center"
+            >
+              Connect Wallet Above
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -192,6 +200,18 @@ const VotingSection: React.FC = () => {
         <p className="text-gray-600">
           Select a candidate and confirm your vote using your connected wallet
         </p>
+        {hasVoted && (
+          <div className="mt-4 flex justify-center">
+            <Button 
+              onClick={handleDisconnectAndReset}
+              variant="outline"
+              className="flex items-center text-blue-600 border-blue-600"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Disconnect wallet to vote again
+            </Button>
+          </div>
+        )}
       </div>
       
       {hasVoted ? (
@@ -199,8 +219,8 @@ const VotingSection: React.FC = () => {
           <CheckCircle2 className="mx-auto h-12 w-12 text-green-500 mb-4" />
           <h3 className="text-xl font-bold mb-2">Vote Successfully Cast!</h3>
           <p className="text-gray-600 mb-4">
-            Your vote has been recorded on the blockchain and cannot be changed.
-            You cannot vote again with this wallet address.
+            Your vote has been recorded on the blockchain and added to the results.
+            To vote again, please disconnect your wallet and reconnect.
           </p>
           {transactionHash && (
             <div className="text-sm bg-white p-3 rounded border text-left">
@@ -208,6 +228,14 @@ const VotingSection: React.FC = () => {
               <p className="text-gray-500 break-all">{transactionHash}</p>
             </div>
           )}
+          <div className="mt-6">
+            <Button
+              onClick={() => window.location.href = '/results'}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              View Updated Results
+            </Button>
+          </div>
         </div>
       ) : (
         <>

@@ -97,9 +97,15 @@ export const BlockchainProvider: React.FC<BlockchainProviderProps> = ({ children
 
       // Update state with the first account
       if (accounts.length > 0) {
-        setAccount(accounts[0]);
+        const newAccount = accounts[0];
+        setAccount(newAccount);
         setIsConnected(true);
         setChainId(await window.ethereum.request({ method: 'eth_chainId' }));
+        
+        // Check if this account has already voted
+        const votedAccounts = JSON.parse(localStorage.getItem('votedAccounts') || '[]');
+        setHasVoted(votedAccounts.includes(newAccount));
+        
         toast.success("Connected to MetaMask!");
       }
     } catch (error) {
@@ -126,9 +132,15 @@ export const BlockchainProvider: React.FC<BlockchainProviderProps> = ({ children
         try {
           const accounts = await window.ethereum.request({ method: 'eth_accounts' });
           if (accounts.length > 0) {
-            setAccount(accounts[0]);
+            const reconnectedAccount = accounts[0];
+            setAccount(reconnectedAccount);
             setIsConnected(true);
             setChainId(await window.ethereum.request({ method: 'eth_chainId' }));
+            
+            // Check if this account has already voted
+            const votedAccounts = JSON.parse(localStorage.getItem('votedAccounts') || '[]');
+            setHasVoted(votedAccounts.includes(reconnectedAccount));
+            
             console.log("Reconnected to MetaMask");
           }
         } catch (error) {
@@ -149,8 +161,14 @@ export const BlockchainProvider: React.FC<BlockchainProviderProps> = ({ children
           disconnectWallet();
         } else if (accounts[0] !== account) {
           // Account changed
-          setAccount(accounts[0]);
+          const newAccount = accounts[0];
+          setAccount(newAccount);
           setIsConnected(true);
+          
+          // Check if this new account has already voted
+          const votedAccounts = JSON.parse(localStorage.getItem('votedAccounts') || '[]');
+          setHasVoted(votedAccounts.includes(newAccount));
+          
           toast.info("Account changed");
         }
       };

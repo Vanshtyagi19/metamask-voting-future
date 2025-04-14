@@ -1,10 +1,32 @@
 
 // This file contains utility functions for interacting with the blockchain
 
+// For development purposes, initialize local storage with some votes if it doesn't exist
+const initializeVotingResults = () => {
+  if (!localStorage.getItem('votingResults')) {
+    const initialResults = {
+      1: 14,
+      2: 12,
+      3: 9,
+      4: 7
+    };
+    localStorage.setItem('votingResults', JSON.stringify(initialResults));
+  }
+};
+
+// Initialize on load
+initializeVotingResults();
+
 // Simulating a blockchain transaction for the frontend
 // In a real implementation, this would interact with an actual smart contract
 export const castVote = async (candidateId: number, account: string): Promise<{ success: boolean; transactionHash: string }> => {
   console.log(`Casting vote for candidate ID ${candidateId} from account ${account}`);
+  
+  // Check if this account has already voted
+  const votedAccounts = JSON.parse(localStorage.getItem('votedAccounts') || '[]');
+  if (votedAccounts.includes(account)) {
+    throw new Error("This wallet address has already voted.");
+  }
   
   // Simulate blockchain transaction time
   await new Promise(resolve => setTimeout(resolve, 2000));
@@ -19,6 +41,11 @@ export const castVote = async (candidateId: number, account: string): Promise<{ 
   if (!success) {
     throw new Error("Transaction failed. Please try again.");
   }
+  
+  // Update results in local storage (simulating blockchain state)
+  const results = JSON.parse(localStorage.getItem('votingResults') || '{}');
+  results[candidateId] = (results[candidateId] || 0) + 1;
+  localStorage.setItem('votingResults', JSON.stringify(results));
   
   return { 
     success: true, 
@@ -47,11 +74,8 @@ export const getVotingResults = async (): Promise<{ [key: number]: number }> => 
   // Simulate API call to get results from blockchain
   await new Promise(resolve => setTimeout(resolve, 1000));
   
-  // Simulated results for demo purposes
-  return {
-    1: Math.floor(Math.random() * 50) + 20,
-    2: Math.floor(Math.random() * 50) + 20,
-    3: Math.floor(Math.random() * 50) + 10,
-    4: Math.floor(Math.random() * 50) + 5
-  };
+  // Get results from local storage (simulating blockchain state)
+  const results = JSON.parse(localStorage.getItem('votingResults') || '{}');
+  
+  return results;
 };

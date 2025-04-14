@@ -8,7 +8,9 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  Cell
+  Cell,
+  PieChart,
+  Pie
 } from '@/components/ui/chart'; // Import Cell from our chart component
 import { getVotingResults } from '@/utils/blockchain';
 import { Loader2 } from 'lucide-react';
@@ -43,7 +45,17 @@ const ResultsSection: React.FC = () => {
     const fetchResults = async () => {
       try {
         setLoading(true);
-        const resultsData = await getVotingResults();
+        // First check if we have results in localStorage
+        const storedResults = localStorage.getItem('votingResults');
+        let resultsData;
+        
+        if (storedResults) {
+          resultsData = JSON.parse(storedResults);
+        } else {
+          resultsData = await getVotingResults();
+          // Store the results for future use
+          localStorage.setItem('votingResults', JSON.stringify(resultsData));
+        }
         
         const formattedResults = Object.entries(resultsData).map(([id, votes]) => ({
           id: parseInt(id),
@@ -85,10 +97,24 @@ const ResultsSection: React.FC = () => {
     return null;
   };
   
+  const CustomPieTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white p-4 shadow-md rounded border">
+          <p className="font-bold">{data.name}</p>
+          <p className="text-gray-700">{`Votes: ${data.votes}`}</p>
+          <p className="text-gray-600">{`${((data.votes / totalVotes) * 100).toFixed(1)}% of total`}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+  
   if (loading) {
     return (
       <div className="flex justify-center items-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-vote-blue mr-2" />
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600 mr-2" />
         <span className="text-lg">Loading results...</span>
       </div>
     );
@@ -129,36 +155,58 @@ const ResultsSection: React.FC = () => {
           </div>
         </div>
         
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-xl font-bold mb-4">Current Standings</h3>
-          <div className="space-y-6">
-            {results.map((candidate, index) => (
-              <div key={candidate.id} className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center">
-                    <div 
-                      className="w-3 h-3 rounded-full mr-2" 
-                      style={{ backgroundColor: candidate.color }}
-                    />
-                    <span className="font-medium">{candidate.name}</span>
+        <div className="grid grid-rows-2 gap-8">
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-lg font-bold mb-4 text-center">Vote Distribution</h3>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={results}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="votes"
+                  >
+                    {results.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomPieTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-lg font-bold mb-4">Current Standings</h3>
+            <div className="space-y-4">
+              {results.map((candidate, index) => (
+                <div key={candidate.id} className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center">
+                      <div 
+                        className="w-3 h-3 rounded-full mr-2" 
+                        style={{ backgroundColor: candidate.color }}
+                      />
+                      <span className="font-medium">{candidate.name}</span>
+                    </div>
+                    <span className="text-gray-700">{candidate.votes} votes</span>
                   </div>
-                  <span className="text-gray-700">{candidate.votes} votes</span>
+                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${(candidate.votes / totalVotes) * 100}%`,
+                        backgroundColor: candidate.color
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${(candidate.votes / totalVotes) * 100}%`,
-                      backgroundColor: candidate.color
-                    }}
-                  />
-                </div>
-                <p className="text-sm text-gray-500">
-                  {((candidate.votes / totalVotes) * 100).toFixed(1)}% of total votes
-                </p>
-                {index < results.length - 1 && <hr className="my-2" />}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>

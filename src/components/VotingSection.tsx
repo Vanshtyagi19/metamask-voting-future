@@ -1,11 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { useBlockchain } from '@/contexts/BlockchainContext';
 import CandidateCard from './CandidateCard';
-import { castVote, checkTransactionStatus } from '@/utils/blockchain';
+import { castVote, checkTransactionStatus, getVotingResults } from '@/utils/blockchain';
 import { toast } from 'sonner';
-import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
 
 // Candidate data (would come from a blockchain contract in a real implementation)
 const candidates = [
@@ -46,6 +46,29 @@ const VotingSection: React.FC = () => {
   const [selectedCandidate, setSelectedCandidate] = useState<number | null>(null);
   const [transactionStatus, setTransactionStatus] = useState<TransactionStatus>('idle');
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
+  const [votingResults, setVotingResults] = useState<{[key: number]: number}>({});
+  
+  useEffect(() => {
+    // Check if the account has already voted when the account changes
+    const checkIfVoted = async () => {
+      if (account) {
+        try {
+          // Normally would check the blockchain here
+          // For demo, we're just checking localStorage
+          const votedAccounts = JSON.parse(localStorage.getItem('votedAccounts') || '[]');
+          if (votedAccounts.includes(account)) {
+            setHasVoted(true);
+          } else {
+            setHasVoted(false);
+          }
+        } catch (error) {
+          console.error("Error checking vote status:", error);
+        }
+      }
+    };
+    
+    checkIfVoted();
+  }, [account, setHasVoted]);
   
   const handleSelectCandidate = (id: number) => {
     if (transactionStatus === 'idle' && !hasVoted) {
@@ -56,6 +79,11 @@ const VotingSection: React.FC = () => {
   const handleCastVote = async () => {
     if (!isConnected || !account || selectedCandidate === null) {
       toast.error("Please connect your wallet and select a candidate first");
+      return;
+    }
+    
+    if (hasVoted) {
+      toast.error("You have already voted with this wallet address");
       return;
     }
     
@@ -76,6 +104,21 @@ const VotingSection: React.FC = () => {
         
         if (confirmed) {
           setTransactionStatus('confirmed');
+          
+          // Update local storage to mark this account as having voted
+          const votedAccounts = JSON.parse(localStorage.getItem('votedAccounts') || '[]');
+          if (!votedAccounts.includes(account)) {
+            votedAccounts.push(account);
+            localStorage.setItem('votedAccounts', JSON.stringify(votedAccounts));
+          }
+          
+          // Update vote count for the selected candidate
+          const currentResults = await getVotingResults();
+          
+          // Store the updated results
+          localStorage.setItem('votingResults', JSON.stringify(currentResults));
+          setVotingResults(currentResults);
+          
           setHasVoted(true);
           toast.success("Your vote has been confirmed on the blockchain!");
         }
@@ -91,28 +134,28 @@ const VotingSection: React.FC = () => {
     switch (transactionStatus) {
       case 'pending':
         return (
-          <div className="flex items-center text-vote-blue">
+          <div className="flex items-center text-blue-600">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             <span>Sending transaction...</span>
           </div>
         );
       case 'confirming':
         return (
-          <div className="flex items-center text-vote-blue">
+          <div className="flex items-center text-blue-600">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             <span>Waiting for confirmation...</span>
           </div>
         );
       case 'confirmed':
         return (
-          <div className="flex items-center text-vote-green">
+          <div className="flex items-center text-green-600">
             <CheckCircle2 className="mr-2 h-5 w-5" />
             <span>Vote confirmed on the blockchain!</span>
           </div>
         );
       case 'failed':
         return (
-          <div className="flex items-center text-vote-red">
+          <div className="flex items-center text-red-600">
             <AlertCircle className="mr-2 h-5 w-5" />
             <span>Transaction failed. Please try again.</span>
           </div>
@@ -124,9 +167,20 @@ const VotingSection: React.FC = () => {
   
   if (!isConnected) {
     return (
-      <div className="text-center p-8">
-        <h2 className="text-2xl font-bold mb-4">Connect to Vote</h2>
-        <p className="text-gray-600 mb-4">Please connect your MetaMask wallet to participate in the election.</p>
+      <div className="container mx-auto py-16 px-4 text-center">
+        <h2 className="text-3xl font-bold mb-4">Connect to Vote</h2>
+        <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
+          Please connect your MetaMask wallet to participate in the election. 
+          Your wallet address will be used to verify your identity and ensure one vote per person.
+        </p>
+        <div className="flex justify-center">
+          <Button 
+            onClick={() => window.scrollTo(0, 0)} 
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            Connect Wallet Above
+          </Button>
+        </div>
       </div>
     );
   }
@@ -146,6 +200,7 @@ const VotingSection: React.FC = () => {
           <h3 className="text-xl font-bold mb-2">Vote Successfully Cast!</h3>
           <p className="text-gray-600 mb-4">
             Your vote has been recorded on the blockchain and cannot be changed.
+            You cannot vote again with this wallet address.
           </p>
           {transactionHash && (
             <div className="text-sm bg-white p-3 rounded border text-left">
@@ -175,7 +230,7 @@ const VotingSection: React.FC = () => {
             <Button
               onClick={handleCastVote}
               disabled={selectedCandidate === null || transactionStatus === 'pending' || transactionStatus === 'confirming' || hasVoted}
-              className="mt-4 bg-vote-blue hover:bg-vote-dark-blue px-8 py-2 text-lg"
+              className="mt-4 bg-blue-600 hover:bg-blue-700 px-8 py-2 text-lg"
             >
               {transactionStatus === 'pending' || transactionStatus === 'confirming' ? (
                 <>

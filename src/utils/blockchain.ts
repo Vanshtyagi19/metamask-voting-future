@@ -1,5 +1,7 @@
 
 // This file contains utility functions for interacting with the blockchain
+// In a production environment, these functions would interact with the actual smart contract
+// defined in VotingContract.sol using the configuration from contract-config.ts
 
 // For development purposes, initialize local storage with some votes if it doesn't exist
 const initializeVotingResults = () => {
@@ -38,7 +40,7 @@ export const resetAccountVote = (account: string): void => {
 };
 
 // Simulating a blockchain transaction for the frontend
-// In a real implementation, this would interact with an actual smart contract
+// In production, this would call contract.castVote(candidateId)
 export const castVote = async (candidateId: number, account: string): Promise<{ success: boolean; transactionHash: string }> => {
   console.log(`Casting vote for candidate ID ${candidateId} from account ${account}`);
   
@@ -198,6 +200,7 @@ export const checkTransactionStatus = async (transactionHash: string): Promise<{
 };
 
 // Get current results (simulated)
+// In production, this would call contract.getAllResults()
 export const getVotingResults = async (): Promise<{ [key: number]: number }> => {
   // Simulate API call to get results from blockchain
   await new Promise(resolve => setTimeout(resolve, 1000));

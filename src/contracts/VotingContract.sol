@@ -19,6 +19,7 @@ contract VotingContract {
         votesCount[2] = 12;
         votesCount[3] = 9;
         votesCount[4] = 7;
+
     }
 
     // Cast a vote
